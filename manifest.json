@@ -1,0 +1,21 @@
+{
+  "name": "Task Manager",
+  "short_name": "TaskManager",
+  "description": "Simple task manager with starfield animation",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "logo2.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "logo2.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
