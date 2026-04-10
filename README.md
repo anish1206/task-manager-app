@@ -21,6 +21,7 @@ A full-stack task manager built with **Node.js + Express** on the backend and **
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) v18 or later
+- [Node.js](https://nodejs.org/) v18 or later
 - npm v8 or later
 - [Docker](https://www.docker.com/) (optional, for containerised setup)
 
