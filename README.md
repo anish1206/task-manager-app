@@ -1,6 +1,16 @@
 # Task Manager App
 
-A full-stack task manager built with **Node.js + Express** on the backend and **React (Vite)** on the frontend. Tasks persist to a local JSON file so they survive server restarts.
+A task manager app built with **Node.js + Express** on the backend and **React (Vite)** on the frontend. Tasks persist to a local JSON file so they survive server restarts.
+
+---
+
+# Screenshots
+
+<img width="940" height="600" alt="Screenshot 2026-04-10 130700" src="https://github.com/user-attachments/assets/b193580c-7b4d-4922-83c3-12f9194f67eb" />
+<img width="871" height="520" alt="Screenshot 2026-04-10 130822" src="https://github.com/user-attachments/assets/f0de37f6-1ec7-4ee0-9946-9645d524e8d8" />
+<img width="871" height="557" alt="Screenshot 2026-04-10 130809" src="https://github.com/user-attachments/assets/1fba4880-b96f-4cd0-a47f-de1b48f46071" />
+<img width="911" height="581" alt="Screenshot 2026-04-10 130755" src="https://github.com/user-attachments/assets/81574fe1-db62-4e78-b01f-7e8d9f9e5874" />
+<img width="879" height="561" alt="Screenshot 2026-04-10 130740" src="https://github.com/user-attachments/assets/dbc98148-4b8b-4b8e-97be-5d0cde9f85e0" />
 
 ---
 
