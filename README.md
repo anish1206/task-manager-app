@@ -1,25 +1,12 @@
 # Task Manager App
 
-A full-stack task manager built with **Node.js + Express** on the backend and **React (Vite)** on the frontend. Tasks are persisted to a local JSON file so they survive server restarts.
-
----
-
-## Table of Contents
-
-- [Prerequisites](#prerequisites)
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-- [REST API Reference](#rest-api-reference)
-- [Data Storage](#data-storage)
-- [Frontend Overview](#frontend-overview)
-- [Running Tests](#running-tests)
-- [Assumptions & Trade-offs](#assumptions--trade-offs)
+A task manager app built with **Node.js + Express** on the backend and **React (Vite)** on the frontend. Tasks are persisted to a local JSON file so they survive server restarts.
 
 ---
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) v18 or later (includes `crypto.randomUUID()` and native `fs`)
+- [Node.js](https://nodejs.org/) v18 or later
 - npm v8 or later
 
 ---
@@ -37,11 +24,11 @@ A full-stack task manager built with **Node.js + Express** on the backend and **
 │   │   │   ├── TaskItem.jsx
 │   │   │   └── StatusBar.jsx
 │   │   └── index.css
-│   └── vite.config.js       # Dev proxy: /tasks → localhost:3001
+│   └── vite.config.js      
 │
 ├── server/                  # Express API
 │   ├── index.js             # Entry point — starts server on port 3001
-│   ├── app.js               # Express app (exported for testing)
+│   ├── app.js               # Express app
 │   ├── store.js             # File-based persistence (tasks.json)
 │   ├── routes/
 │   │   └── tasks.js         # All /tasks route handlers
