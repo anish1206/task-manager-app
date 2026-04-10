@@ -30,6 +30,21 @@ router.post('/', (req, res) => {
   res.status(201).json(task);
 });
 
+// PUT /tasks/:id — edit task title
+router.put('/:id', (req, res) => {
+  const task = tasks.find(t => t.id === req.params.id);
+  if (!task) {
+    return res.status(404).json({ error: 'Task not found.' });
+  }
+  const { title } = req.body;
+  if (!title || typeof title !== 'string' || title.trim() === '') {
+    return res.status(400).json({ error: 'Title is required and must be a non-empty string.' });
+  }
+  task.title = title.trim();
+  save(tasks);
+  res.status(200).json(task);
+});
+
 // PATCH /tasks/:id — update completed field
 router.patch('/:id', (req, res) => {
   const task = tasks.find(t => t.id === req.params.id);

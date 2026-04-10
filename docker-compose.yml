@@ -1,0 +1,26 @@
+version: '3.9'
+
+services:
+  server:
+    build: ./server
+    ports:
+      - '3001:3001'
+    volumes:
+      # Persist tasks.json across container restarts
+      - tasks-data:/app
+    restart: unless-stopped
+
+  client:
+    build:
+      context: ./client
+      args:
+        # Tells the production build where the API lives
+        VITE_API_URL: http://localhost:3001
+    ports:
+      - '5173:5173'
+    depends_on:
+      - server
+    restart: unless-stopped
+
+volumes:
+  tasks-data:

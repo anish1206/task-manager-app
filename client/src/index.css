@@ -30,7 +30,7 @@
     --bg: #0f0f14;
     --card-bg: #1a1b23;
     --border: #2a2b35;
-    --accent: #2c2635;
+    --accent: #b5b5b5;
     --accent-hover: #57516f;
     --accent-bg: rgba(167, 139, 250, 0.12);
     --danger: #f87171;
@@ -323,4 +323,111 @@ body {
   color: var(--text);
   text-align: center;
   opacity: 0.7;
+}
+
+/* ── Filter bar ── */
+.filter-bar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.filter-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 12px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.filter-btn:hover {
+  color: var(--text-h);
+  border-color: var(--accent);
+}
+
+.filter-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  font-weight: 600;
+}
+
+.filter-count {
+  font-size: 0.75rem;
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: var(--border);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.filter-btn.active .filter-count {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+/* ── Inline edit ── */
+.task-edit-input {
+  flex: 1;
+  padding: 3px 8px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: var(--text-h);
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-bg);
+}
+
+.task-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.task-item:hover .task-actions,
+.task-item:focus-within .task-actions {
+  opacity: 1;
+}
+
+.btn-edit {
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.btn-edit:hover:not(:disabled) {
+  color: var(--text-h);
+  background: var(--accent-bg);
+  border-color: var(--accent);
+}
+
+.btn-edit:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* keep delete visible when editing is active */
+.task-item:focus-within .btn-delete {
+  opacity: 1;
 }

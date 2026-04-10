@@ -1,6 +1,6 @@
 # Task Manager App
 
-A full-stack task manager built with **Node.js + Express** on the backend and **React (Vite)** on the frontend. Tasks are persisted to a local JSON file so they survive server restarts.
+A full-stack task manager built with **Node.js + Express** on the backend and **React (Vite)** on the frontend. Tasks persist to a local JSON file so they survive server restarts.
 
 ---
 
@@ -9,6 +9,7 @@ A full-stack task manager built with **Node.js + Express** on the backend and **
 - [Prerequisites](#prerequisites)
 - [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
+- [Running with Docker](#running-with-docker)
 - [REST API Reference](#rest-api-reference)
 - [Data Storage](#data-storage)
 - [Frontend Overview](#frontend-overview)
@@ -19,8 +20,9 @@ A full-stack task manager built with **Node.js + Express** on the backend and **
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) v18 or later (includes `crypto.randomUUID()` and native `fs`)
+- [Node.js](https://nodejs.org/) v18 or later
 - npm v8 or later
+- [Docker](https://www.docker.com/) (optional, for containerised setup)
 
 ---
 
@@ -28,25 +30,35 @@ A full-stack task manager built with **Node.js + Express** on the backend and **
 
 ```
 .
-├── client/                  # React (Vite) frontend
+├── client/                    # React (Vite) frontend
 │   ├── src/
-│   │   ├── App.jsx          # Root component — state & API calls
+│   │   ├── App.jsx            # Root component — state & API calls
+│   │   ├── api.js             # fetch wrapper (reads VITE_API_URL for Docker)
 │   │   ├── components/
-│   │   │   ├── TaskForm.jsx
-│   │   │   ├── TaskList.jsx
-│   │   │   ├── TaskItem.jsx
-│   │   │   └── StatusBar.jsx
+│   │   │   ├── TaskForm.jsx   # Controlled input + submit button
+│   │   │   ├── FilterBar.jsx  # All / Active / Done filter tabs
+│   │   │   ├── TaskList.jsx   # Renders list of TaskItems
+│   │   │   ├── TaskItem.jsx   # Checkbox, inline edit, delete button
+│   │   │   └── StatusBar.jsx  # Loading spinner + error banner
 │   │   └── index.css
-│   └── vite.config.js       # Dev proxy: /tasks → localhost:3001
+│   ├── src/tests/
+│   │   └── components.test.jsx
+│   ├── Dockerfile
+│   └── vite.config.js         # Dev proxy: /tasks → localhost:3001
 │
-├── server/                  # Express API
-│   ├── index.js             # Entry point — starts server on port 3001
-│   ├── app.js               # Express app (exported for testing)
-│   ├── store.js             # File-based persistence (tasks.json)
+├── server/                    # Express API
+│   ├── index.js               # Entry point — starts server on port 3001
+│   ├── app.js                 # Express app exported for testing
+│   ├── store.js               # File-based persistence (tasks.json)
 │   ├── routes/
-│   │   └── tasks.js         # All /tasks route handlers
-│   └── tasks.json           # Auto-created on first task (gitignore this if needed)
+│   │   └── tasks.js           # All /tasks route handlers
+│   ├── tests/
+│   │   └── tasks.test.mjs
+│   ├── tasks.json             # Auto-created on first task
+│   └── Dockerfile
 │
+├── docker-compose.yml
+├── .gitignore
 └── README.md
 ```
 
@@ -64,7 +76,7 @@ npm install
 node index.js
 ```
 
-The API server starts on **http://localhost:3001**.
+API server runs on **http://localhost:3001**.
 
 **Terminal 2 — Frontend**
 
@@ -74,9 +86,26 @@ npm install
 npm run dev
 ```
 
-The frontend starts on **http://localhost:5173**. Open that URL in your browser.
+Frontend runs on **http://localhost:5173**. Open that URL in your browser.
 
-> Both servers must be running at the same time. The Vite dev server proxies all `/tasks` requests to the backend automatically.
+> Both servers must be running simultaneously. The Vite dev server proxies all `/tasks` requests to the backend automatically — no CORS config needed.
+
+---
+
+## Running with Docker
+
+Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/) to be running.
+
+```bash
+docker compose up --build
+```
+
+| Service  | URL                       |
+|----------|---------------------------|
+| Frontend | http://localhost:5173     |
+| Backend  | http://localhost:3001     |
+
+Tasks are persisted in a named Docker volume (`tasks-data`) so they survive container restarts. To reset: `docker compose down -v`.
 
 ---
 
@@ -90,22 +119,20 @@ All request and response bodies use `application/json`.
 
 ### GET /tasks
 
-Returns all tasks currently in the store.
+Returns all tasks in the store.
 
 **Response `200 OK`**
-
 ```json
 [
   {
-    "id": "a1b2c3d4-...",
+    "id": "a1b2c3d4-e5f6-...",
     "title": "Buy groceries",
     "completed": false,
     "createdAt": "2024-01-15T10:30:00.000Z"
   }
 ]
 ```
-
-Returns an empty array `[]` if no tasks exist.
+Returns `[]` if no tasks exist.
 
 ---
 
@@ -114,17 +141,11 @@ Returns an empty array `[]` if no tasks exist.
 Creates a new task.
 
 **Request body**
-
 ```json
 { "title": "Buy groceries" }
 ```
 
-| Field   | Type   | Required | Notes                          |
-|---------|--------|----------|--------------------------------|
-| `title` | string | yes      | Must be non-empty, non-whitespace |
-
 **Response `201 Created`**
-
 ```json
 {
   "id": "a1b2c3d4-e5f6-...",
@@ -135,42 +156,41 @@ Creates a new task.
 ```
 
 **Response `400 Bad Request`** — missing or blank title
-
 ```json
 { "error": "Title is required and must be a non-empty string." }
 ```
 
 ---
 
-### PATCH /tasks/:id
+### PUT /tasks/:id
 
-Updates the `completed` status of a task.
-
-**URL parameter**
-
-| Param | Description        |
-|-------|--------------------|
-| `id`  | UUID of the task   |
+Edits the title of an existing task.
 
 **Request body**
+```json
+{ "title": "Updated title" }
+```
 
+**Response `200 OK`** — returns the full updated task
+
+**Response `400 Bad Request`** — blank title
+
+**Response `404 Not Found`** — unknown id
+
+---
+
+### PATCH /tasks/:id
+
+Toggles the `completed` status of a task.
+
+**Request body**
 ```json
 { "completed": true }
 ```
 
 **Response `200 OK`** — returns the full updated task
 
-```json
-{
-  "id": "a1b2c3d4-...",
-  "title": "Buy groceries",
-  "completed": true,
-  "createdAt": "2024-01-15T10:30:00.000Z"
-}
-```
-
 **Response `404 Not Found`**
-
 ```json
 { "error": "Task not found." }
 ```
@@ -181,16 +201,9 @@ Updates the `completed` status of a task.
 
 Removes a task permanently.
 
-**URL parameter**
-
-| Param | Description        |
-|-------|--------------------|
-| `id`  | UUID of the task   |
-
 **Response `204 No Content`** — empty body
 
 **Response `404 Not Found`**
-
 ```json
 { "error": "Task not found." }
 ```
@@ -199,8 +212,7 @@ Removes a task permanently.
 
 ### Error response shape
 
-All error responses share the same shape and always include `Content-Type: application/json`:
-
+All errors share the same shape:
 ```json
 { "error": "<human-readable message>" }
 ```
@@ -211,72 +223,94 @@ All error responses share the same shape and always include `Content-Type: appli
 
 Tasks are persisted to **`server/tasks.json`** using Node's built-in `fs` module — no database or extra dependencies required.
 
-**How it works (`server/store.js`)**
-
-| Function      | Behaviour                                                                 |
-|---------------|---------------------------------------------------------------------------|
+| Function      | Behaviour |
+|---------------|-----------|
 | `load()`      | Reads `tasks.json` on server startup. Returns `[]` if the file doesn't exist yet. |
-| `save(tasks)` | Writes the full tasks array to `tasks.json` after every mutation (POST, PATCH, DELETE). |
+| `save(tasks)` | Writes the full tasks array to disk after every POST, PUT, PATCH, and DELETE. |
 
-The file is created automatically the first time a task is added. If you want a clean slate, delete `server/tasks.json` and restart the server.
+The file is created automatically the first time a task is added. To start fresh, delete `server/tasks.json` and restart the server.
 
 **Task data model**
 
-| Field       | Type    | Description                              |
-|-------------|---------|------------------------------------------|
-| `id`        | string  | UUID v4, generated via `crypto.randomUUID()` |
-| `title`     | string  | User-provided, trimmed of whitespace     |
-| `completed` | boolean | `false` on creation                      |
-| `createdAt` | string  | ISO 8601 timestamp at creation time      |
+| Field       | Type    | Description |
+|-------------|---------|-------------|
+| `id`        | string  | UUID v4 via `crypto.randomUUID()` |
+| `title`     | string  | User-provided, trimmed of whitespace |
+| `completed` | boolean | `false` on creation |
+| `createdAt` | string  | ISO 8601 timestamp |
 
 ---
 
 ## Frontend Overview
 
-The frontend is a single-page React app scaffolded with Vite.
+Single-page React app scaffolded with Vite.
 
 **Component tree**
 
 ```
 App
-├── StatusBar   — loading spinner + error banner
-├── TaskForm    — controlled input + submit button
+├── StatusBar     — loading spinner + error banner
+├── TaskForm      — controlled input + submit button
+├── FilterBar     — All / Active / Done filter tabs with counts
 └── TaskList
-    └── TaskItem (×n) — checkbox, title, delete button
+    └── TaskItem (×n)
+        ├── Checkbox       — toggles completed
+        ├── Title          — double-click or Edit button for inline editing
+        └── Delete button
 ```
 
-**State management** — all state lives in `App.jsx`:
+**State in `App.jsx`**
 
-| State     | Type      | Description                              |
-|-----------|-----------|------------------------------------------|
-| `tasks`   | array     | The current list of tasks from the API   |
-| `loading` | boolean   | `true` while any API request is in flight |
-| `error`   | string \| null | Last error message, cleared on next action |
+| State     | Type           | Description |
+|-----------|----------------|-------------|
+| `tasks`   | array          | Full task list from the API |
+| `loading` | boolean        | `true` while any request is in flight |
+| `error`   | string \| null | Last error message; cleared on next action |
+| `filter`  | string         | Active filter: `'all'`, `'active'`, or `'completed'` |
 
-**API calls** — all use `fetch()` with the pattern:
+**Inline editing** — double-click a task title (or click the Edit button) to edit in place. Press **Enter** to save, **Escape** to cancel, or click away to commit.
 
-```js
-setLoading(true);
-setError(null);
-try {
-  const res = await fetch('/tasks', { method, headers, body });
-  if (!res.ok) throw new Error((await res.json()).error || 'Request failed');
-  // update state optimistically from response
-} catch (err) {
-  setError(err.message);
-} finally {
-  setLoading(false);
-}
+**API helper** — `client/src/api.js` wraps `fetch` and prepends `VITE_API_URL` when set (used in Docker production builds). In dev, the Vite proxy handles routing so no env var is needed.
+
+---
+
+## Running Tests
+
+**Backend** — 5 tests covering all four endpoints
+
+```bash
+cd server
+npm test
 ```
 
-Interactive controls (submit button, checkboxes, delete buttons) are disabled while `loading` is `true` to prevent duplicate requests.
+**Frontend** — 5 tests covering key component behaviour
+
+```bash
+cd client
+npm test
+```
+
+**What's tested**
+
+| # | Suite    | Test |
+|---|----------|------|
+| 1 | Backend  | GET /tasks returns all tasks |
+| 2 | Backend  | POST /tasks creates a task (201) |
+| 3 | Backend  | POST /tasks rejects empty title (400) |
+| 4 | Backend  | PATCH /tasks/:id toggles completed |
+| 5 | Backend  | DELETE /tasks/:id removes the task |
+| 6 | Frontend | TaskForm calls onAdd with trimmed title and clears input |
+| 7 | Frontend | TaskForm disables submit button while loading |
+| 8 | Frontend | TaskItem renders title, checkbox state, and calls onToggle |
+| 9 | Frontend | App fetches tasks on mount and renders them |
+| 10 | Frontend | App shows error message when fetch fails |
 
 ---
 
 ## Assumptions & Trade-offs
 
-- **File-based persistence** — Tasks are stored in `server/tasks.json`. This survives restarts but is not suitable for concurrent multi-process deployments. A proper database (SQLite, PostgreSQL, etc.) would be the next step for production use.
-- **No authentication** — Any client with network access to port 3001 can read and modify all tasks. Auth is out of scope for this implementation.
-- **Vite proxy for local development** — The Vite dev server proxies `/tasks` to `localhost:3001`, avoiding CORS configuration during development. In production, both could be served from the same origin or a reverse proxy (e.g. nginx) would handle routing.
-- **No TypeScript** — Plain JavaScript is used throughout to keep the codebase approachable and reduce setup overhead.
-- **Single-user** — There is no concept of users or task ownership. All tasks are shared across all clients connected to the same server instance.
+- **File-based persistence** — `server/tasks.json` survives restarts but is not suitable for concurrent multi-process deployments. A proper database (SQLite, PostgreSQL) would be the next step for production.
+- **No authentication** — any client with network access to port 3001 can read and modify all tasks. Auth is out of scope.
+- **Vite proxy for local dev** — proxies `/tasks` to `localhost:3001`, avoiding CORS config. In production (Docker), `VITE_API_URL` is injected at build time.
+- **No TypeScript** — plain JavaScript throughout to keep the codebase approachable.
+- **Single-user** — no concept of users or task ownership; all tasks are shared across all connected clients.
