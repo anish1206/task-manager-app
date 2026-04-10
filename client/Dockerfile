@@ -1,4 +1,4 @@
-FROM node:18-alpine AS build
+FROM node:20-alpine AS build
 
 WORKDIR /app
 
@@ -14,7 +14,7 @@ ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
 # Serve the built files with a lightweight static server
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
