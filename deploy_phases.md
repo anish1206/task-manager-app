@@ -62,8 +62,8 @@
 - [x] Push code to a **GitHub repository** (public, to unlock free CI/CD minutes).
 - [x] Deploy the **frontend to Vercel** (connect GitHub repo, set `VITE_API_URL`).
 - [x] Deploy the **backend to Render** (free web service, connect GitHub).
-- [ ] Verify the deployed frontend can reach the deployed backend.
-- [ ] Confirm **HTTPS is active** (automatic on both platforms).
+- [x] Verify the deployed frontend can reach the deployed backend.
+- [x] Confirm **HTTPS is active** (automatic on both platforms).
 
 ### Exit Checklist
 - âœ… App is reachable at a public HTTPS URL.
