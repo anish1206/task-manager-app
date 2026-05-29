@@ -287,34 +287,60 @@ App
 
 ## Running Tests
 
-**Backend** — 5 tests covering all four endpoints
+### Quick Start
+
+**Backend** — 17 tests covering all endpoints + health check
 
 ```bash
 cd server
-npm test
+npm test                 # Run once
+npm run test:watch       # Watch mode
+npm run test:coverage    # With coverage report
 ```
 
-**Frontend** — 5 tests covering key component behaviour
+**Frontend** — 29 tests covering all components + integration
 
 ```bash
 cd client
-npm test
+npm test                 # Run once
+npm run test:watch       # Watch mode
+npm run test:coverage    # With coverage report
+npm run lint             # Run ESLint
 ```
 
-**What's tested**
+### CI/CD Pipeline
 
-| # | Suite    | Test |
-|---|----------|------|
-| 1 | Backend  | GET /tasks returns all tasks |
-| 2 | Backend  | POST /tasks creates a task (201) |
-| 3 | Backend  | POST /tasks rejects empty title (400) |
-| 4 | Backend  | PATCH /tasks/:id toggles completed |
-| 5 | Backend  | DELETE /tasks/:id removes the task |
-| 6 | Frontend | TaskForm calls onAdd with trimmed title and clears input |
-| 7 | Frontend | TaskForm disables submit button while loading |
-| 8 | Frontend | TaskItem renders title, checkbox state, and calls onToggle |
-| 9 | Frontend | App fetches tasks on mount and renders them |
-| 10 | Frontend | App shows error message when fetch fails |
+Tests run automatically on every push to `master` via GitHub Actions:
+
+- ✅ Server tests (with PostgreSQL)
+- ✅ Client tests (with linting)
+- ✅ Docker build verification
+- ✅ Security vulnerability scanning
+
+View results in the **Actions** tab on GitHub.
+
+### Test Coverage
+
+**Server (17 tests)**
+- All CRUD operations (GET, POST, PUT, PATCH, DELETE)
+- Health check endpoint
+- Input validation
+- Error handling
+- Database integration
+
+**Client (29 tests)**
+- All components (TaskForm, TaskItem, TaskList, FilterBar, StatusBar)
+- User interactions (click, type, submit)
+- API integration
+- State management
+- Filtering logic
+- Error and loading states
+
+### Documentation
+
+- **[TESTING.md](TESTING.md)** - Comprehensive testing guide
+- **[GITHUB_ACTIONS_SETUP.md](GITHUB_ACTIONS_SETUP.md)** - CI/CD setup guide
+- **[TESTS_AND_CI_SUMMARY.md](TESTS_AND_CI_SUMMARY.md)** - Detailed test breakdown
 
 ---
 
