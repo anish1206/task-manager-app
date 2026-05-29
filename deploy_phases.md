@@ -59,9 +59,9 @@
 - [x] Add a 10-second force-kill timeout as a fallback.
 
 #### 0.5 First Deployment âœ…
-- [ ] Push code to a **GitHub repository** (public, to unlock free CI/CD minutes).
-- [ ] Deploy the **frontend to Vercel** (connect GitHub repo, set `VITE_API_URL`).
-- [ ] Deploy the **backend to Render** (free web service, connect GitHub).
+- [x] Push code to a **GitHub repository** (public, to unlock free CI/CD minutes).
+- [x] Deploy the **frontend to Vercel** (connect GitHub repo, set `VITE_API_URL`).
+- [x] Deploy the **backend to Render** (free web service, connect GitHub).
 - [ ] Verify the deployed frontend can reach the deployed backend.
 - [ ] Confirm **HTTPS is active** (automatic on both platforms).
 

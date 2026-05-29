@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const { load, save } = require('../store');
+const { randomUUID } = require('crypto');
 
 let tasks = load();
 
@@ -19,7 +20,7 @@ router.post('/', (req, res) => {
 
   // Create task and push to store
   const task = {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     title: title.trim(),
     completed: false,
     createdAt: new Date().toISOString(),
