@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 
-const DEV_USER_ID = process.env.DEV_USER_ID || null;
+const DEV_USER_ID = process.env.NODE_ENV === 'test' ? null : (process.env.DEV_USER_ID || null);
 
 // GET all tasks
 router.get('/', async (req, res) => {

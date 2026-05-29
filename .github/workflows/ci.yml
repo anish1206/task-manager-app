@@ -45,6 +45,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Setup database schema
+        run: |
+          PGPASSWORD=test psql -h localhost -U test -d taskmanager_test -c "
+          CREATE TABLE IF NOT EXISTS tasks (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID,
+            title TEXT NOT NULL,
+            completed BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+          );"
+        env:
+          PGPASSWORD: test
+
       - name: Run tests
         run: npm test
         env:
@@ -89,6 +103,7 @@ jobs:
         run: npm test
         env:
           NODE_ENV: test
+          VITE_API_URL: http://localhost:3001
 
       - name: Build client
         run: npm run build
@@ -138,10 +153,27 @@ jobs:
 
       - name: Test Docker Compose
         run: |
+          # Create .env file for docker-compose
+          cat > .env << EOF
+          NODE_ENV=production
+          SERVER_PORT=3001
+          CLIENT_PORT=5173
+          VITE_API_URL=http://localhost:3001
+          JWT_SECRET=test-secret-for-ci
+          EOF
+          
           docker compose up -d
-          sleep 10
+          sleep 15
+          
+          # Check if containers are running
+          docker compose ps
+          
+          # Check server health
           curl -f http://localhost:3001/health || exit 1
+          
+          # Check client
           curl -f http://localhost:5173 || exit 1
+          
           docker compose down
 
   # ── Security Scan ───────────────────────────────────────────────────────────

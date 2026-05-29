@@ -52,21 +52,9 @@ describe('GET /tasks', () => {
   });
 
   it('returns all tasks', async () => {
-    // Insert test data - include user_id if DEV_USER_ID is set
-    const userId = process.env.DEV_USER_ID;
-    if (userId) {
-      await pool.query(
-        `INSERT INTO tasks (user_id, title, completed) VALUES ($1, 'Buy milk', false)`,
-        [userId]
-      );
-      await pool.query(
-        `INSERT INTO tasks (user_id, title, completed) VALUES ($1, 'Walk dog', true)`,
-        [userId]
-      );
-    } else {
-      await pool.query(`INSERT INTO tasks (title, completed) VALUES ('Buy milk', false)`);
-      await pool.query(`INSERT INTO tasks (title, completed) VALUES ('Walk dog', true)`);
-    }
+    // Insert test data without user_id (tests should not filter by user)
+    await pool.query(`INSERT INTO tasks (title, completed) VALUES ('Buy milk', false)`);
+    await pool.query(`INSERT INTO tasks (title, completed) VALUES ('Walk dog', true)`);
 
     const res = await request(app).get('/tasks');
     
