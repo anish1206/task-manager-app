@@ -1,25 +1,34 @@
-version: '3.9'
-
 services:
   server:
     build: ./server
     ports:
-      - '3001:3001'
+      - '${SERVER_PORT:-3001}:3001'
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3001
+      - JWT_SECRET=${JWT_SECRET}
     volumes:
       # Persist tasks.json across container restarts
-      - tasks-data:/app
+      - tasks-data:/app/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
 
   client:
     build:
       context: ./client
       args:
         # Tells the production build where the API lives
-        VITE_API_URL: http://localhost:3001
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3001}
     ports:
-      - '5173:5173'
+      - '${CLIENT_PORT:-5173}:80'
     depends_on:
-      - server
+      server:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
