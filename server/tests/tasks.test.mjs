@@ -13,8 +13,9 @@ function makeTask(overrides = {}) {
   };
 }
 
-// Clean up test data before and after tests
+// Ensure the tasks table exists (also prepared in CI before tests run)
 beforeAll(async () => {
+  await pool.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
   await pool.query(`
     CREATE TABLE IF NOT EXISTS tasks (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -33,9 +34,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  // Clean up and close connection
-  await pool.query('DELETE FROM tasks');
-  await pool.end();
+  await pool.query('DELETE FROM tasks').catch(() => {});
 });
 
 describe('GET /tasks', () => {
