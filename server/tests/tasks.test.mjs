@@ -15,21 +15,16 @@ function makeTask(overrides = {}) {
 
 // Clean up test data before and after tests
 beforeAll(async () => {
-  // Create test table if it doesn't exist (for CI/CD)
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS tasks (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID,
-        title TEXT NOT NULL,
-        completed BOOLEAN DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
-  } catch (err) {
-    // Table might already exist
-  }
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tasks (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID,
+      title TEXT NOT NULL,
+      completed BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
 });
 
 beforeEach(async () => {
@@ -52,16 +47,19 @@ describe('GET /tasks', () => {
   });
 
   it('returns all tasks', async () => {
-    // Insert test data without user_id (tests should not filter by user)
-    await pool.query(`INSERT INTO tasks (title, completed) VALUES ('Buy milk', false)`);
-    await pool.query(`INSERT INTO tasks (title, completed) VALUES ('Walk dog', true)`);
+    const buyMilk = await pool.query(
+      `INSERT INTO tasks (title, completed) VALUES ('Buy milk', false) RETURNING id`
+    );
+    await pool.query(
+      `INSERT INTO tasks (title, completed, created_at) VALUES ('Walk dog', true, NOW() + interval '1 second')`
+    );
 
     const res = await request(app).get('/tasks');
     
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(2);
-    expect(res.body[0].title).toBe('Walk dog'); // DESC order (inserted last)
-    expect(res.body[1].title).toBe('Buy milk');
+    expect(res.body.map((task) => task.title)).toEqual(['Walk dog', 'Buy milk']);
+    expect(res.body.some((task) => task.id === buyMilk.rows[0].id)).toBe(true);
   });
 });
 
