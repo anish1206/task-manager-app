@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [master, main]
 
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   # ── Server Tests ────────────────────────────────────────────────────────────
   server-test:
@@ -44,20 +48,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Setup database schema
-        run: |
-          PGPASSWORD=test psql -h localhost -U test -d taskmanager_test -c "
-          CREATE TABLE IF NOT EXISTS tasks (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            user_id UUID,
-            title TEXT NOT NULL,
-            completed BOOLEAN DEFAULT FALSE,
-            created_at TIMESTAMP DEFAULT NOW(),
-            updated_at TIMESTAMP DEFAULT NOW()
-          );"
-        env:
-          PGPASSWORD: test
 
       - name: Run tests
         run: npm test
@@ -186,26 +176,36 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run Trivy vulnerability scanner (Server)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: 'fs'
           scan-ref: './server'
           format: 'sarif'
           output: 'trivy-server-results.sarif'
+          exit-code: '0'
 
       - name: Run Trivy vulnerability scanner (Client)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: 'fs'
           scan-ref: './client'
           format: 'sarif'
           output: 'trivy-client-results.sarif'
+          exit-code: '0'
 
       - name: Upload Trivy results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
         if: always()
+        continue-on-error: true
         with:
-          sarif_file: '.'
+          sarif_file: 'trivy-server-results.sarif'
+
+      - name: Upload client Trivy results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        continue-on-error: true
+        with:
+          sarif_file: 'trivy-client-results.sarif'
 
   # ── Summary ─────────────────────────────────────────────────────────────────
   ci-success:
