@@ -110,28 +110,63 @@ function App() {
 
   return (
     <div className="app">
-      <header className="app-header">
-        <h1>Task Manager</h1>
+      <nav className="app-nav" aria-label="Primary">
+        <span className="app-nav-brand">Task Manager</span>
+        <span className="app-nav-meta">Midnight Command</span>
+      </nav>
+
+      <header className="app-hero">
+        <div className="app-hero-inner">
+          <span className="hero-badge">Productivity</span>
+          <h1>Your tasks, organized</h1>
+          <p className="hero-sub">Track, complete, and filter what matters.</p>
+        </div>
       </header>
-      <StatusBar loading={loading} error={error} />
-      <TaskForm onAdd={addTask} loading={loading} />
+
+      <main className="app-main">
+        <section className="app-section" aria-label="Status">
+          <StatusBar loading={loading} error={error} />
+        </section>
+
+        <section className="app-section" aria-labelledby="add-task-label">
+          <h2 id="add-task-label" className="section-label">Add task</h2>
+          <TaskForm onAdd={addTask} loading={loading} />
+        </section>
+
+        {tasks.length > 0 && (
+          <section className="app-section" aria-labelledby="filter-label">
+            <h2 id="filter-label" className="section-label">Filter</h2>
+            <FilterBar
+              filter={filter}
+              onChange={setFilter}
+              counts={{
+                all: tasks.length,
+                active: tasks.length - completedCount,
+                completed: completedCount,
+              }}
+            />
+          </section>
+        )}
+
+        <section className="app-section" aria-labelledby="tasks-label">
+          <h2 id="tasks-label" className="section-label">Tasks</h2>
+          <TaskList
+            tasks={filteredTasks}
+            onToggle={toggleTask}
+            onDelete={deleteTask}
+            onEdit={editTask}
+            loading={loading}
+            filter={filter}
+          />
+        </section>
+      </main>
+
       {tasks.length > 0 && (
-        <FilterBar filter={filter} onChange={setFilter} counts={{
-          all: tasks.length,
-          active: tasks.length - completedCount,
-          completed: completedCount,
-        }} />
-      )}
-      <TaskList
-        tasks={filteredTasks}
-        onToggle={toggleTask}
-        onDelete={deleteTask}
-        onEdit={editTask}
-        loading={loading}
-        filter={filter}
-      />
-      {tasks.length > 0 && (
-        <p className="task-stats">{completedCount} of {tasks.length} completed</p>
+        <footer className="app-footer">
+          <div className="app-footer-inner">
+            <p className="task-stats">{completedCount} of {tasks.length} completed</p>
+          </div>
+        </footer>
       )}
     </div>
   );

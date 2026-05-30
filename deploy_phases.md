@@ -86,21 +86,21 @@
 ### Sub-Tasks
 
 #### 1.1 Migrate from JSON File to PostgreSQL âš™ï¸ *(highest priority)*
-- [ ] Provision a free **PostgreSQL database on Neon** (0.5 GB tier).
-- [ ] Design the schema: `tasks` table now, `users` table prepared for Phase 2.
-- [ ] Add the `pgcrypto` extension for UUID generation.
-- [ ] Install `node-pg-migrate` and write migration `001_create_tasks`.
-- [ ] Set up a **connection pool** with `pg` (`max: 20` connections).
-- [ ] Rewrite the routes' data layer to use **parameterized SQL queries** instead of `fs.readFileSync`.
-- [ ] Add core **indexes**: `idx_tasks_created` (sorting), and prepare for `user_id` indexing in Phase 2.
-- [ ] Add an **auto-update trigger** for the `updated_at` column.
-- [ ] Update `/health` to run `SELECT 1` against the DB.
-- [ ] Run a one-time data migration of existing `tasks.json` records (if any).
+- [x] Provision a free **PostgreSQL database on Neon** (0.5 GB tier).
+- [x] Design the schema: `tasks` table now, `users` table prepared for Phase 2.
+- [x] Add the `pgcrypto` extension for UUID generation.
+- [x] Install `node-pg-migrate` and write migration `001_create_tasks`.
+- [x] Set up a **connection pool** with `pg` (`max: 20` connections).
+- [x] Rewrite the routes' data layer to use **parameterized SQL queries** instead of `fs.readFileSync`.
+- [x] Add core **indexes**: `idx_tasks_created` (sorting), and prepare for `user_id` indexing in Phase 2.
+- [x] Add an **auto-update trigger** for the `updated_at` column.
+- [x] Update `/health` to run `SELECT 1` against the DB.
+- [x] Run a one-time data migration of existing `tasks.json` records (if any).
 
 #### 1.2 Set Up CI/CD with GitHub Actions âš™ï¸âœ…
-- [ ] Create `.github/workflows/ci.yml`.
-- [ ] Add **parallel jobs**: `test-server`, `test-client` (lint + test + build).
-- [ ] Add a **deploy job** that runs only on `main` push and after tests pass.
+- [x] Create `.github/workflows/ci.yml`.
+- [x] Add **parallel jobs**: `test-server`, `test-client` (lint + test + build).
+- [x] Add a **deploy job** that runs only on `main` push and after tests pass.
 - [ ] Wire the backend deploy to a **Render deploy hook**; frontend auto-deploys via Vercel's GitHub integration.
 - [ ] Store the deploy hook URL in **GitHub repository secrets**.
 - [ ] Confirm a push to `main` triggers a full green pipeline.

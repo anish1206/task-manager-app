@@ -13,12 +13,15 @@ export default function TaskForm({ onAdd, loading }) {
 
   return (
     <form className="task-form" onSubmit={handleSubmit}>
-      <input
-        type="text"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Add a new task…"
-      />
+      <div className="task-form-field">
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Add a new task…"
+          aria-label="New task title"
+        />
+      </div>
       <button className="btn-add" type="submit" disabled={loading}>
         + Add
       </button>
