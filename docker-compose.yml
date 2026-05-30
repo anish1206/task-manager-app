@@ -1,4 +1,21 @@
 services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-taskmanager}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./server/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-taskmanager}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   server:
     build: ./server
     ports:
@@ -6,23 +23,23 @@ services:
     environment:
       - NODE_ENV=${NODE_ENV:-production}
       - PORT=3001
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-taskmanager}
       - JWT_SECRET=${JWT_SECRET}
-    volumes:
-      # Persist tasks.json across container restarts
-      - tasks-data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
+      test: ['CMD', 'node', '-e', "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   client:
     build:
       context: ./client
       args:
-        # Tells the production build where the API lives
         VITE_API_URL: ${VITE_API_URL:-http://localhost:3001}
     ports:
       - '${CLIENT_PORT:-5173}:80'
@@ -32,4 +49,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  tasks-data:
+  pgdata:

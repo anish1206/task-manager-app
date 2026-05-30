@@ -146,27 +146,24 @@ jobs:
 
       - name: Test Docker Compose
         run: |
-          # Create .env file for docker-compose
           cat > .env << EOF
           NODE_ENV=production
           SERVER_PORT=3001
           CLIENT_PORT=5173
           VITE_API_URL=http://localhost:3001
           JWT_SECRET=test-secret-for-ci
+          POSTGRES_USER=postgres
+          POSTGRES_PASSWORD=postgres
+          POSTGRES_DB=taskmanager
           EOF
-          
-          docker compose up -d
-          sleep 15
-          
-          # Check if containers are running
+
+          docker compose up -d --wait
+
           docker compose ps
-          
-          # Check server health
-          curl -f http://localhost:3001/health || exit 1
-          
-          # Check client
-          curl -f http://localhost:5173 || exit 1
-          
+
+          curl -f http://localhost:3001/health
+          curl -f http://localhost:5173
+
           docker compose down
 
   # ── Security Scan ───────────────────────────────────────────────────────────
