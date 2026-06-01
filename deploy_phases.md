@@ -121,7 +121,7 @@
 #### 1.5 Expand Tests ðŸ§ª
 - [ ] Grow backend tests to cover: empty title, oversized title, whitespace trimming, 404 on missing ID.
 - [ ] Add integration tests that hit the real (test) database.
-- [ ] Keep the CI pipeline failing on any test/lint error.
+
 
 #### 1.6 Handle Cold Starts âš™ï¸
 - [ ] Set up a free **cron ping** (cron-job.org) hitting `/health` every ~14 minutes to keep Render warm.

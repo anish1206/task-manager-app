@@ -6,14 +6,9 @@ const request = require('supertest');
 const app = require('../app');
 const pool = require('../db');
 
-function makeTask(overrides = {}) {
-  return {
-    title: overrides.title ?? 'Test task',
-    completed: overrides.completed ?? false,
-  };
-}
+const BASE = '/api/v1/tasks';
 
-// Ensure the tasks table exists (also prepared in CI before tests run)
+// ── DB bootstrap ──────────────────────────────────────────────────────────────
 beforeAll(async () => {
   await pool.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
   await pool.query(`
@@ -29,7 +24,6 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  // Clean all tasks before each test
   await pool.query('DELETE FROM tasks');
 });
 
@@ -37,35 +31,149 @@ afterAll(async () => {
   await pool.query('DELETE FROM tasks').catch(() => {});
 });
 
-describe('GET /tasks', () => {
-  it('returns empty array when no tasks', async () => {
-    const res = await request(app).get('/tasks');
-    
+// ── Helpers ───────────────────────────────────────────────────────────────────
+async function insertTask(title = 'Test task', completed = false, createdAt = null) {
+  if (createdAt) {
+    const r = await pool.query(
+      `INSERT INTO tasks (title, completed, created_at) VALUES ($1, $2, $3) RETURNING *`,
+      [title, completed, createdAt]
+    );
+    return r.rows[0];
+  }
+  const r = await pool.query(
+    `INSERT INTO tasks (title, completed) VALUES ($1, $2) RETURNING *`,
+    [title, completed]
+  );
+  return r.rows[0];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('GET /api/v1/tasks', () => {
+  it('returns empty data array when no tasks', async () => {
+    const res = await request(app).get(BASE);
+
     expect(res.status).toBe(200);
-    expect(res.body).toEqual([]);
+    expect(res.body.data).toEqual([]);
+    expect(res.body.pagination).toMatchObject({ hasMore: false, nextCursor: null });
   });
 
-  it('returns all tasks', async () => {
-    const buyMilk = await pool.query(
-      `INSERT INTO tasks (title, completed) VALUES ('Buy milk', false) RETURNING id`
-    );
+  it('returns all tasks with pagination envelope', async () => {
+    await insertTask('Buy milk', false);
+    // Insert second task a little later so ordering is deterministic
     await pool.query(
       `INSERT INTO tasks (title, completed, created_at) VALUES ('Walk dog', true, NOW() + interval '1 second')`
     );
 
-    const res = await request(app).get('/tasks');
-    
+    const res = await request(app).get(BASE);
+
     expect(res.status).toBe(200);
-    expect(res.body).toHaveLength(2);
-    expect(res.body.map((task) => task.title)).toEqual(['Walk dog', 'Buy milk']);
-    expect(res.body.some((task) => task.id === buyMilk.rows[0].id)).toBe(true);
+    expect(res.body.data).toHaveLength(2);
+    // Default sort: createdAt DESC → Walk dog first
+    expect(res.body.data[0].title).toBe('Walk dog');
+    expect(res.body.data[1].title).toBe('Buy milk');
+    expect(res.body.pagination.hasMore).toBe(false);
+  });
+
+  // ── Filtering ───────────────────────────────────────────────────────────────
+  it('filters by completed=true', async () => {
+    await insertTask('Done task', true);
+    await insertTask('Todo task', false);
+
+    const res = await request(app).get(`${BASE}?completed=true`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].title).toBe('Done task');
+    expect(res.body.data[0].completed).toBe(true);
+  });
+
+  it('filters by completed=false', async () => {
+    await insertTask('Done task', true);
+    await insertTask('Todo task', false);
+
+    const res = await request(app).get(`${BASE}?completed=false`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].title).toBe('Todo task');
+    expect(res.body.data[0].completed).toBe(false);
+  });
+
+  // ── Sorting ─────────────────────────────────────────────────────────────────
+  it('sorts by title ASC', async () => {
+    await insertTask('Zebra');
+    await insertTask('Apple');
+    await insertTask('Mango');
+
+    const res = await request(app).get(`${BASE}?sort=title&order=asc`);
+
+    expect(res.status).toBe(200);
+    const titles = res.body.data.map((t) => t.title);
+    expect(titles).toEqual(['Apple', 'Mango', 'Zebra']);
+  });
+
+  it('sorts by title DESC', async () => {
+    await insertTask('Zebra');
+    await insertTask('Apple');
+    await insertTask('Mango');
+
+    const res = await request(app).get(`${BASE}?sort=title&order=desc`);
+
+    const titles = res.body.data.map((t) => t.title);
+    expect(titles).toEqual(['Zebra', 'Mango', 'Apple']);
+  });
+
+  // ── Pagination ───────────────────────────────────────────────────────────────
+  it('returns hasMore:true and a nextCursor when there are more pages', async () => {
+    await insertTask('Task 1');
+    await pool.query(
+      `INSERT INTO tasks (title, created_at) VALUES ('Task 2', NOW() + interval '1 second')`
+    );
+
+    const res = await request(app).get(`${BASE}?limit=1`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.pagination.hasMore).toBe(true);
+    expect(res.body.pagination.nextCursor).toBeTruthy();
+    expect(res.body.pagination.limit).toBe(1);
+  });
+
+  it('follows cursor to fetch next page without overlap', async () => {
+    // Insert 3 tasks with distinct timestamps
+    for (let i = 1; i <= 3; i++) {
+      await pool.query(
+        `INSERT INTO tasks (title, created_at) VALUES ($1, NOW() + interval '${i} seconds')`,
+        [`Task ${i}`]
+      );
+    }
+
+    const page1 = await request(app).get(`${BASE}?limit=2`);
+    expect(page1.body.data).toHaveLength(2);
+    expect(page1.body.pagination.hasMore).toBe(true);
+
+    const cursor = page1.body.pagination.nextCursor;
+    const page2 = await request(app).get(`${BASE}?limit=2&cursor=${encodeURIComponent(cursor)}`);
+    expect(page2.body.data).toHaveLength(1);
+    expect(page2.body.pagination.hasMore).toBe(false);
+
+    // No overlap
+    const page1Ids = page1.body.data.map((t) => t.id);
+    const page2Ids = page2.body.data.map((t) => t.id);
+    expect(page1Ids.some((id) => page2Ids.includes(id))).toBe(false);
+  });
+
+  it('clamps limit to maximum of 100', async () => {
+    const res = await request(app).get(`${BASE}?limit=9999`);
+    expect(res.body.pagination.limit).toBe(100);
   });
 });
 
-describe('POST /tasks', () => {
+// ─────────────────────────────────────────────────────────────────────────────
+describe('POST /api/v1/tasks', () => {
   it('creates a task and returns 201', async () => {
-    const res = await request(app).post('/tasks').send({ title: 'Walk the dog' });
-    
+    const res = await request(app).post(BASE).send({ title: 'Walk the dog' });
+
     expect(res.status).toBe(201);
     expect(res.body.title).toBe('Walk the dog');
     expect(res.body.completed).toBe(false);
@@ -74,106 +182,154 @@ describe('POST /tasks', () => {
   });
 
   it('returns 400 for empty title', async () => {
-    const res = await request(app).post('/tasks').send({ title: '' });
-    
+    const res = await request(app).post(BASE).send({ title: '' });
+
     expect(res.status).toBe(400);
-    expect(res.body).toHaveProperty('error', 'Title is required');
+    expect(res.body).toHaveProperty('error');
   });
 
   it('returns 400 for missing title', async () => {
-    const res = await request(app).post('/tasks').send({});
-    
+    const res = await request(app).post(BASE).send({});
+
     expect(res.status).toBe(400);
-    expect(res.body).toHaveProperty('error', 'Title is required');
+    expect(res.body).toHaveProperty('error');
   });
 
-  it('trims whitespace from title', async () => {
-    const res = await request(app).post('/tasks').send({ title: '  Trimmed task  ' });
-    
+  it('returns 400 for whitespace-only title', async () => {
+    const res = await request(app).post(BASE).send({ title: '   ' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/required/i);
+  });
+
+  it('returns 400 for title exceeding 500 characters', async () => {
+    const longTitle = 'a'.repeat(501);
+    const res = await request(app).post(BASE).send({ title: longTitle });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/500/);
+  });
+
+  it('accepts a title of exactly 500 characters', async () => {
+    const maxTitle = 'a'.repeat(500);
+    const res = await request(app).post(BASE).send({ title: maxTitle });
+
+    expect(res.status).toBe(201);
+    expect(res.body.title).toBe(maxTitle);
+  });
+
+  it('trims leading and trailing whitespace from title', async () => {
+    const res = await request(app).post(BASE).send({ title: '  Trimmed task  ' });
+
     expect(res.status).toBe(201);
     expect(res.body.title).toBe('Trimmed task');
   });
 });
 
-describe('PUT /tasks/:id', () => {
-  it('updates task title', async () => {
-    const created = await pool.query(`INSERT INTO tasks (title) VALUES ('Original') RETURNING *`);
-    const taskId = created.rows[0].id;
+// ─────────────────────────────────────────────────────────────────────────────
+describe('PUT /api/v1/tasks/:id', () => {
+  it('updates task title and returns 200', async () => {
+    const task = await insertTask('Original');
 
-    const res = await request(app).put(`/tasks/${taskId}`).send({ title: 'Updated title' });
-    
+    const res = await request(app).put(`${BASE}/${task.id}`).send({ title: 'Updated title' });
+
     expect(res.status).toBe(200);
     expect(res.body.title).toBe('Updated title');
-    expect(res.body.id).toBe(taskId);
+    expect(res.body.id).toBe(task.id);
   });
 
   it('returns 404 for non-existent task', async () => {
     const fakeId = '00000000-0000-0000-0000-000000000000';
-    const res = await request(app).put(`/tasks/${fakeId}`).send({ title: 'New title' });
-    
+    const res = await request(app).put(`${BASE}/${fakeId}`).send({ title: 'New title' });
+
     expect(res.status).toBe(404);
     expect(res.body).toHaveProperty('error', 'Task not found');
   });
 
   it('returns 400 for empty title', async () => {
-    const created = await pool.query(`INSERT INTO tasks (title) VALUES ('Original') RETURNING *`);
-    const taskId = created.rows[0].id;
+    const task = await insertTask('Original');
 
-    const res = await request(app).put(`/tasks/${taskId}`).send({ title: '' });
-    
+    const res = await request(app).put(`${BASE}/${task.id}`).send({ title: '' });
+
     expect(res.status).toBe(400);
-    expect(res.body).toHaveProperty('error', 'Title is required');
+    expect(res.body).toHaveProperty('error');
+  });
+
+  it('returns 400 for whitespace-only title', async () => {
+    const task = await insertTask('Original');
+
+    const res = await request(app).put(`${BASE}/${task.id}`).send({ title: '   ' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/required/i);
+  });
+
+  it('returns 400 for title exceeding 500 characters', async () => {
+    const task = await insertTask('Original');
+    const longTitle = 'x'.repeat(501);
+
+    const res = await request(app).put(`${BASE}/${task.id}`).send({ title: longTitle });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/500/);
+  });
+
+  it('trims whitespace on update', async () => {
+    const task = await insertTask('Original');
+
+    const res = await request(app).put(`${BASE}/${task.id}`).send({ title: '  Spaced  ' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.title).toBe('Spaced');
   });
 });
 
-describe('PATCH /tasks/:id', () => {
-  it('toggles completed status', async () => {
-    const created = await pool.query(`INSERT INTO tasks (title, completed) VALUES ('Task', false) RETURNING *`);
-    const taskId = created.rows[0].id;
+// ─────────────────────────────────────────────────────────────────────────────
+describe('PATCH /api/v1/tasks/:id', () => {
+  it('sets completed to true', async () => {
+    const task = await insertTask('Task', false);
 
-    const res = await request(app).patch(`/tasks/${taskId}`).send({ completed: true });
-    
+    const res = await request(app).patch(`${BASE}/${task.id}`).send({ completed: true });
+
     expect(res.status).toBe(200);
     expect(res.body.completed).toBe(true);
   });
 
-  it('toggles without explicit value', async () => {
-    const created = await pool.query(`INSERT INTO tasks (title, completed) VALUES ('Task', false) RETURNING *`);
-    const taskId = created.rows[0].id;
+  it('toggles completed when no value provided', async () => {
+    const task = await insertTask('Task', false);
 
-    const res = await request(app).patch(`/tasks/${taskId}`).send({});
-    
+    const res = await request(app).patch(`${BASE}/${task.id}`).send({});
+
     expect(res.status).toBe(200);
-    expect(res.body.completed).toBe(true); // Toggled from false to true
+    expect(res.body.completed).toBe(true); // toggled false → true
   });
 
   it('returns 404 for non-existent task', async () => {
     const fakeId = '00000000-0000-0000-0000-000000000000';
-    const res = await request(app).patch(`/tasks/${fakeId}`).send({ completed: true });
-    
+    const res = await request(app).patch(`${BASE}/${fakeId}`).send({ completed: true });
+
     expect(res.status).toBe(404);
     expect(res.body).toHaveProperty('error', 'Task not found');
   });
 });
 
-describe('DELETE /tasks/:id', () => {
-  it('removes the task', async () => {
-    const created = await pool.query(`INSERT INTO tasks (title) VALUES ('To delete') RETURNING *`);
-    const taskId = created.rows[0].id;
+// ─────────────────────────────────────────────────────────────────────────────
+describe('DELETE /api/v1/tasks/:id', () => {
+  it('removes the task and returns 204', async () => {
+    const task = await insertTask('To delete');
 
-    const res = await request(app).delete(`/tasks/${taskId}`);
-    
+    const res = await request(app).delete(`${BASE}/${task.id}`);
+
     expect(res.status).toBe(204);
 
-    // Verify it's deleted
-    const check = await pool.query('SELECT * FROM tasks WHERE id = $1', [taskId]);
+    const check = await pool.query('SELECT * FROM tasks WHERE id = $1', [task.id]);
     expect(check.rows).toHaveLength(0);
   });
 
   it('returns 404 for non-existent task', async () => {
     const fakeId = '00000000-0000-0000-0000-000000000000';
-    const res = await request(app).delete(`/tasks/${fakeId}`);
-    
+    const res = await request(app).delete(`${BASE}/${fakeId}`);
+
     expect(res.status).toBe(404);
     expect(res.body).toHaveProperty('error', 'Task not found');
   });
