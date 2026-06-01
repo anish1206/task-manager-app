@@ -3,24 +3,29 @@ import StatusBar from './components/StatusBar';
 import TaskForm from './components/TaskForm';
 import TaskList from './components/TaskList';
 import FilterBar from './components/FilterBar';
+import AuthPage from './components/AuthPage';
+import { useAuth } from './context/AuthContext';
 import { apiFetch } from './api';
 
 function App() {
+  const { user, logout, loading: authLoading } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all'); // 'all' | 'active' | 'completed'
 
   async function fetchTasks() {
+    if (!user) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await apiFetch('/tasks');
+      const res = await apiFetch('/api/v1/tasks?limit=100');
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || 'Request failed');
       }
-      setTasks(await res.json());
+      const json = await res.json();
+      setTasks(json.data || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -32,7 +37,7 @@ function App() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiFetch('/tasks', {
+      const res = await apiFetch('/api/v1/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title }),
@@ -51,7 +56,7 @@ function App() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiFetch(`/tasks/${id}`, {
+      const res = await apiFetch(`/api/v1/tasks/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title }),
@@ -70,7 +75,7 @@ function App() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiFetch(`/tasks/${id}`, {
+      const res = await apiFetch(`/api/v1/tasks/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ completed }),
@@ -89,7 +94,7 @@ function App() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiFetch(`/tasks/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/v1/tasks/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error((await res.json()).error || 'Request failed');
       setTasks((prev) => prev.filter((t) => t.id !== id));
     } catch (err) {
@@ -99,7 +104,19 @@ function App() {
     }
   }
 
-  useEffect(() => { fetchTasks(); }, []);
+  useEffect(() => { 
+    if (user) {
+      fetchTasks(); 
+    }
+  }, [user]);
+
+  if (authLoading) {
+    return <div className="app-loading">Loading...</div>;
+  }
+
+  if (!user) {
+    return <AuthPage />;
+  }
 
   const completedCount = tasks.filter((t) => t.completed).length;
   const filteredTasks = tasks.filter((t) => {
@@ -112,7 +129,10 @@ function App() {
     <div className="app">
       <nav className="app-nav" aria-label="Primary">
         <span className="app-nav-brand">Task Manager</span>
-        <span className="app-nav-meta">Midnight Command</span>
+        <div className="nav-actions">
+          <span className="app-nav-meta">{user.email}</span>
+          <button onClick={logout} className="btn-link logout-btn">Logout</button>
+        </div>
       </nav>
 
       <header className="app-hero">

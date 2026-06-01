@@ -28,10 +28,20 @@ async function prepareDatabase() {
 
   try {
     await client.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS tasks (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         title TEXT NOT NULL,
         completed BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT NOW(),

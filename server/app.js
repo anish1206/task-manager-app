@@ -48,8 +48,10 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// ── Body parsing ─────────────────────────────────────────────────────────────
+// ── Body & Cookie parsing ───────────────────────────────────────────────────
+const cookieParser = require('cookie-parser');
 app.use(express.json());
+app.use(cookieParser());
 
 // ── Health check (both paths: uptime-probe friendly + versioned) ─────────────
 const healthHandler = (req, res) => {
@@ -64,7 +66,12 @@ const healthHandler = (req, res) => {
 app.get('/health', healthHandler);
 app.get('/api/v1/health', healthHandler);
 
-// ── API v1 routes ─────────────────────────────────────────────────────────────
-app.use('/api/v1/tasks', tasksRouter);
+// ── Auth routes ───────────────────────────────────────────────────────────────
+const authRouter = require('./routes/auth');
+app.use('/api/auth', authRouter);
+
+// ── API v1 routes (protected) ─────────────────────────────────────────────────
+const authenticate = require('./middleware/authenticate');
+app.use('/api/v1/tasks', authenticate, tasksRouter);
 
 module.exports = app;

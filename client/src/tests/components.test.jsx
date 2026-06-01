@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App';
+import { AuthProvider } from '../context/AuthContext';
 import TaskForm from '../components/TaskForm';
 import TaskItem from '../components/TaskItem';
 import TaskList from '../components/TaskList';
@@ -25,6 +26,20 @@ function makeTask(overrides = {}) {
     created_at: overrides.created_at ?? new Date().toISOString(),
     updated_at: overrides.updated_at ?? new Date().toISOString(),
   };
+}
+
+const testUser = { id: 'test-user-id', email: 'test@example.com' };
+
+function mockAuthSession() {
+  return { ok: true, json: async () => testUser };
+}
+
+function renderApp() {
+  return render(
+    <AuthProvider>
+      <App />
+    </AuthProvider>
+  );
 }
 
 describe('TaskForm', () => {
@@ -194,24 +209,25 @@ describe('StatusBar', () => {
 describe('App Integration', () => {
   it('fetches tasks on mount and renders them', async () => {
     const tasks = [makeTask({ title: 'Fetched task' })];
-    global.fetch.mockResolvedValueOnce({ 
-      ok: true, 
-      json: async () => tasks 
-    });
+    global.fetch
+      .mockResolvedValueOnce(mockAuthSession())
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: tasks }) });
     
-    render(<App />);
+    renderApp();
     
     await waitFor(() => expect(screen.getByText('Fetched task')).toBeInTheDocument());
     expect(global.fetch).toHaveBeenCalled();
   });
 
   it('shows error message when fetch fails', async () => {
-    global.fetch.mockResolvedValueOnce({
-      ok: false,
-      json: async () => ({ error: 'Server error' }),
-    });
+    global.fetch
+      .mockResolvedValueOnce(mockAuthSession())
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ error: 'Server error' }),
+      });
     
-    render(<App />);
+    renderApp();
     
     await waitFor(() => expect(screen.getByText(/server error/i)).toBeInTheDocument());
   });
@@ -221,11 +237,12 @@ describe('App Integration', () => {
     const newTask = makeTask({ id: '2', title: 'New task' });
     
     global.fetch
-      .mockResolvedValueOnce({ ok: true, json: async () => existingTasks })
+      .mockResolvedValueOnce(mockAuthSession())
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: existingTasks }) })
       .mockResolvedValueOnce({ ok: true, json: async () => newTask });
     
     const user = userEvent.setup();
-    render(<App />);
+    renderApp();
     
     await waitFor(() => expect(screen.getByText('Existing task')).toBeInTheDocument());
     
@@ -241,11 +258,12 @@ describe('App Integration', () => {
     const updatedTask = { ...task, completed: true };
     
     global.fetch
-      .mockResolvedValueOnce({ ok: true, json: async () => [task] })
+      .mockResolvedValueOnce(mockAuthSession())
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [task] }) })
       .mockResolvedValueOnce({ ok: true, json: async () => updatedTask });
     
     const user = userEvent.setup();
-    render(<App />);
+    renderApp();
     
     await waitFor(() => expect(screen.getByText('Toggle me')).toBeInTheDocument());
     
@@ -264,11 +282,12 @@ describe('App Integration', () => {
     ];
     
     global.fetch
-      .mockResolvedValueOnce({ ok: true, json: async () => tasks })
+      .mockResolvedValueOnce(mockAuthSession())
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: tasks }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
     
     const user = userEvent.setup();
-    render(<App />);
+    renderApp();
     
     await waitFor(() => expect(screen.getByText('Delete me')).toBeInTheDocument());
     
@@ -285,10 +304,12 @@ describe('App Integration', () => {
       makeTask({ id: '2', title: 'Completed task', completed: true }),
     ];
     
-    global.fetch.mockResolvedValueOnce({ ok: true, json: async () => tasks });
+    global.fetch
+      .mockResolvedValueOnce(mockAuthSession())
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: tasks }) });
     
     const user = userEvent.setup();
-    render(<App />);
+    renderApp();
     
     await waitFor(() => expect(screen.getByText('Active task')).toBeInTheDocument());
     
@@ -316,9 +337,11 @@ describe('App Integration', () => {
       makeTask({ completed: true }),
     ];
     
-    global.fetch.mockResolvedValueOnce({ ok: true, json: async () => tasks });
+    global.fetch
+      .mockResolvedValueOnce(mockAuthSession())
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: tasks }) });
     
-    render(<App />);
+    renderApp();
     
     await waitFor(() => expect(screen.getByText(/1 of 3 completed/i)).toBeInTheDocument());
   });

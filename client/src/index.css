@@ -568,3 +568,110 @@ body {
     padding-inline: var(--spacing-16);
   }
 }
+
+/* ── Auth Page ── */
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-24);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--color-deep-midnight);
+  border: 1px solid var(--color-faded-steel);
+  border-radius: var(--radius-inputs);
+  padding: var(--spacing-32);
+}
+
+.auth-title {
+  font-size: var(--text-heading);
+  line-height: var(--leading-heading);
+  margin: 0 0 var(--spacing-8);
+}
+
+.auth-subtitle {
+  color: var(--color-muted-ash);
+  margin: 0 0 var(--spacing-24);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-16);
+}
+
+.auth-field label {
+  display: block;
+  font-size: var(--text-caption);
+  text-transform: uppercase;
+  color: var(--color-muted-ash);
+  margin-bottom: var(--spacing-8);
+  font-family: var(--font-geistmono);
+}
+
+.auth-field input {
+  width: 100%;
+  padding: var(--spacing-12) var(--spacing-16);
+  background: var(--surface-canvas);
+  border: 1px solid var(--color-faded-steel);
+  border-radius: 8px;
+  color: var(--color-frost-white);
+}
+
+.btn-auth {
+  margin-top: var(--spacing-8);
+  padding: var(--spacing-12);
+  background: var(--color-frost-white);
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  width: 100%;
+}
+
+.btn-auth:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.auth-switch {
+  margin-top: var(--spacing-24);
+  text-align: center;
+  color: var(--color-muted-ash);
+  font-size: var(--text-body-sm);
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--color-frost-white);
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-16);
+}
+
+.logout-btn {
+  color: var(--color-muted-ash);
+  font-size: var(--text-caption);
+  text-transform: uppercase;
+  font-family: var(--font-geistmono);
+}
+
+.app-loading {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-muted-ash);
+}
