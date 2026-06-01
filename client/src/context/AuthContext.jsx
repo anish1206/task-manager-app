@@ -15,7 +15,7 @@ export function AuthProvider({ children }) {
   async function checkAuth() {
     setLoading(true);
     try {
-      const res = await apiFetch('/auth/me');
+      const res = await apiFetch('/api/auth/me');
       if (res.ok) {
         setUser(await res.json());
       } else {
@@ -31,7 +31,7 @@ export function AuthProvider({ children }) {
   async function login(email, password) {
     setError(null);
     try {
-      const res = await apiFetch('/auth/login', {
+      const res = await apiFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -49,7 +49,7 @@ export function AuthProvider({ children }) {
   async function register(email, password) {
     setError(null);
     try {
-      const res = await apiFetch('/auth/register', {
+      const res = await apiFetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -66,7 +66,7 @@ export function AuthProvider({ children }) {
 
   async function logout() {
     try {
-      await apiFetch('/auth/logout', { method: 'POST' });
+      await apiFetch('/api/auth/logout', { method: 'POST' });
     } finally {
       setUser(null);
     }

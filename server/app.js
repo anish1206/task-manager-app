@@ -6,11 +6,19 @@ const tasksRouter = require('./routes/tasks');
 
 const app = express();
 
+// Render/Heroku sit behind a reverse proxy — needed for secure cookies & rate limits
+app.set('trust proxy', 1);
+
 // ── Track server start time for uptime ───────────────────────────────────────
 const startTime = Date.now();
 
 // ── Security: Helmet (sets safe HTTP headers) ────────────────────────────────
-app.use(helmet());
+app.use(
+  helmet({
+    // API is called cross-origin from Vercel; default CORP blocks some fetches
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
 
 // ── Security: CORS — allow only known origins ────────────────────────────────
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
@@ -27,10 +35,10 @@ app.use(
     origin: (origin, callback) => {
       // Allow server-to-server requests (no Origin header) and whitelisted origins
       if (!origin || corsOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error(`CORS policy: origin '${origin}' not allowed`));
+        return callback(null, true);
       }
+      console.warn(`CORS blocked origin: ${origin}. Allowed: ${corsOrigins.join(', ')}`);
+      return callback(null, false);
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

@@ -9,15 +9,18 @@ const BCRYPT_ROUNDS = 12;
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = '7d';
 const COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
+const isProduction = process.env.NODE_ENV === 'production';
+
+const cookieOptions = {
+  httpOnly: true,
+  secure: isProduction,
+  sameSite: isProduction ? 'none' : 'lax',
+  path: '/',
+};
 
 // ── Cookie helper ─────────────────────────────────────────────────────────────
 function setAuthCookie(res, token) {
-  res.cookie('token', token, {
-    httpOnly: true,                          // XSS protection
-    secure: process.env.NODE_ENV === 'production', // HTTPS in prod; HTTP ok in dev
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // cross-site in prod
-    maxAge: COOKIE_MAX_AGE,
-  });
+  res.cookie('token', token, { ...cookieOptions, maxAge: COOKIE_MAX_AGE });
 }
 
 // ── Validation rules ──────────────────────────────────────────────────────────
@@ -105,11 +108,7 @@ router.post('/login', emailPasswordRules, handleValidation, async (req, res) => 
 
 // ── POST /api/auth/logout ─────────────────────────────────────────────────────
 router.post('/logout', (req, res) => {
-  res.clearCookie('token', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-  });
+  res.clearCookie('token', cookieOptions);
   return res.status(200).json({ message: 'Logged out' });
 });
 
