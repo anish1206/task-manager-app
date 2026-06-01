@@ -40,8 +40,31 @@ function handleValidation(req, res, next) {
   next();
 }
 
+function ensureJwtSecret(res) {
+  if (!JWT_SECRET) {
+    console.error('JWT_SECRET is not set');
+    res.status(500).json({ error: 'Server misconfiguration' });
+    return false;
+  }
+  return true;
+}
+
+async function verifyPassword(plain, hash) {
+  if (!hash || !hash.startsWith('$2')) {
+    return false;
+  }
+  try {
+    return await bcrypt.compare(plain, hash);
+  } catch (err) {
+    console.error('bcrypt.compare failed:', err.message);
+    return false;
+  }
+}
+
 // ── POST /api/auth/register ───────────────────────────────────────────────────
 router.post('/register', emailPasswordRules, handleValidation, async (req, res) => {
+  if (!ensureJwtSecret(res)) return;
+
   try {
     const { email, password } = req.body;
 
@@ -75,6 +98,8 @@ router.post('/register', emailPasswordRules, handleValidation, async (req, res) 
 
 // ── POST /api/auth/login ──────────────────────────────────────────────────────
 router.post('/login', emailPasswordRules, handleValidation, async (req, res) => {
+  if (!ensureJwtSecret(res)) return;
+
   try {
     const { email, password } = req.body;
 
@@ -88,7 +113,7 @@ router.post('/login', emailPasswordRules, handleValidation, async (req, res) => 
     }
 
     const user = result.rows[0];
-    const match = await bcrypt.compare(password, user.password_hash);
+    const match = await verifyPassword(password, user.password_hash);
 
     if (!match) {
       return res.status(401).json({ error: 'Invalid email or password' });
@@ -114,6 +139,10 @@ router.post('/logout', (req, res) => {
 
 // ── GET /api/auth/me ──────────────────────────────────────────────────────────
 router.get('/me', (req, res) => {
+  if (!JWT_SECRET) {
+    return res.status(500).json({ error: 'Server misconfiguration' });
+  }
+
   const token = req.cookies?.token;
   if (!token) {
     return res.status(401).json({ error: 'Not authenticated' });

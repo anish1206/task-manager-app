@@ -21,8 +21,12 @@ app.use(
 );
 
 // ── Security: CORS — allow only known origins ────────────────────────────────
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
-  .split(',')
+// Set on Render: ALLOWED_ORIGINS=https://your-app.vercel.app
+// Or set FRONTEND_URL to the same value (single origin shorthand).
+const allowedOrigins = [
+  ...(process.env.ALLOWED_ORIGINS || '').split(','),
+  process.env.FRONTEND_URL || '',
+]
   .map((o) => o.trim())
   .filter(Boolean);
 
@@ -30,14 +34,17 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
 const devOrigins = ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:3001'];
 const corsOrigins = [...new Set([...allowedOrigins, ...devOrigins])];
 
+function isOriginAllowed(origin) {
+  return !origin || corsOrigins.includes(origin);
+}
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow server-to-server requests (no Origin header) and whitelisted origins
-      if (!origin || corsOrigins.includes(origin)) {
-        return callback(null, true);
+      if (isOriginAllowed(origin)) {
+        return callback(null, origin || true);
       }
-      console.warn(`CORS blocked origin: ${origin}. Allowed: ${corsOrigins.join(', ')}`);
+      console.warn(`CORS blocked origin: ${origin}. Allowed: ${corsOrigins.join(', ') || '(none — set ALLOWED_ORIGINS on Render)'}`);
       return callback(null, false);
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -64,11 +71,17 @@ app.use(cookieParser());
 // ── Health check (both paths: uptime-probe friendly + versioned) ─────────────
 const healthHandler = (req, res) => {
   const uptime = Math.floor((Date.now() - startTime) / 1000);
+  const productionOrigins = allowedOrigins.length;
   res.status(200).json({
     status: 'ok',
     uptime,
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
+    checks: {
+      cors: productionOrigins > 0,
+      jwt: Boolean(process.env.JWT_SECRET),
+      database: Boolean(process.env.DATABASE_URL),
+    },
   });
 };
 app.get('/health', healthHandler);

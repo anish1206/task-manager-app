@@ -5,6 +5,19 @@ const PORT = process.env.PORT || 3001;
 const server = app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+
+  if (process.env.NODE_ENV === 'production') {
+    const hasCors =
+      (process.env.ALLOWED_ORIGINS || '').trim() || (process.env.FRONTEND_URL || '').trim();
+    if (!hasCors) {
+      console.error(
+        'WARNING: ALLOWED_ORIGINS (or FRONTEND_URL) is not set — browser login from Vercel will fail CORS.'
+      );
+    }
+    if (!process.env.JWT_SECRET) {
+      console.error('WARNING: JWT_SECRET is not set — authentication will not work.');
+    }
+  }
 });
 
 // Graceful shutdown handler
