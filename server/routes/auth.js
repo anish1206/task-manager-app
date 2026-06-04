@@ -139,13 +139,13 @@ router.post('/logout', (req, res) => {
 
 // ── GET /api/auth/me ──────────────────────────────────────────────────────────
 router.get('/me', (req, res) => {
-  if (!JWT_SECRET) {
-    return res.status(500).json({ error: 'Server misconfiguration' });
-  }
-
   const token = req.cookies?.token;
   if (!token) {
     return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  if (!JWT_SECRET) {
+    return res.status(500).json({ error: 'Server misconfiguration' });
   }
 
   try {
