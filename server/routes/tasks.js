@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
+const cache = require('../cache');
 const { body, validationResult } = require('express-validator');
 
 // ── Validation middleware ─────────────────────────────────────────────────────
@@ -25,8 +26,6 @@ const titleRules = [
 function handleValidation(req, res, next) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    // Surface the first error's message as the primary `error` field
-    // (keeps backwards-compat) plus a full `errors` array for clients that want detail
     const firstMsg = errors.array()[0].msg;
     return res.status(400).json({ error: firstMsg, errors: errors.array() });
   }
@@ -45,22 +44,18 @@ router.get('/', async (req, res) => {
     // ── Parse & validate query params ────────────────────────────────────────
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
 
-    // Sort field whitelist
     const sortFieldMap = {
       createdAt: 'created_at',
       updatedAt: 'updated_at',
       title: 'title',
     };
     const sortField = sortFieldMap[req.query.sort] || 'created_at';
-
     const order = req.query.order === 'asc' ? 'ASC' : 'DESC';
 
-    // completed filter: only apply when the param is explicitly 'true' or 'false'
     let completedFilter = null;
     if (req.query.completed === 'true') completedFilter = true;
     else if (req.query.completed === 'false') completedFilter = false;
 
-    // Cursor decoding: "<created_at_iso>__<id>"
     let cursorCreatedAt = null;
     let cursorId = null;
     if (req.query.cursor) {
@@ -71,28 +66,33 @@ router.get('/', async (req, res) => {
       }
     }
 
+    // ── Cache read-through ────────────────────────────────────────────────────
+    const cacheKey = cache.taskListKey(req.user.id, req.query);
+    const cached = await cache.get(cacheKey);
+    if (cached) {
+      // Serve from Redis — skip the DB entirely
+      return res
+        .status(200)
+        .set('X-Cache', 'HIT')
+        .set('Cache-Control', 'private, max-age=60')
+        .json(cached);
+    }
+
     // ── Build parameterized query ─────────────────────────────────────────────
     const params = [];
-
     const conditions = [];
 
-    // User filter (always isolate by user)
     params.push(req.user.id);
     conditions.push(`user_id = $${params.length}`);
 
-    // Completed filter
     if (completedFilter !== null) {
       params.push(completedFilter);
       conditions.push(`completed = $${params.length}`);
     }
 
-    // Cursor condition — fetch rows that come *after* the cursor position
-    // Using (sort_field, id) tuple comparison for stable pagination
     if (cursorCreatedAt && cursorId) {
       params.push(cursorCreatedAt);
       params.push(cursorId);
-      // For DESC: rows where (col, id) < (cursor_col, cursor_id)
-      // For ASC:  rows where (col, id) > (cursor_col, cursor_id)
       const cmp = order === 'DESC' ? '<' : '>';
       conditions.push(
         `(${sortField}, id::text) ${cmp} ($${params.length - 1}, $${params.length})`
@@ -101,7 +101,6 @@ router.get('/', async (req, res) => {
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    // Fetch limit+1 to determine if there's a next page
     params.push(limit + 1);
     const limitParam = `$${params.length}`;
 
@@ -118,7 +117,6 @@ router.get('/', async (req, res) => {
     const hasMore = result.rows.length > limit;
     const rows = hasMore ? result.rows.slice(0, limit) : result.rows;
 
-    // Build next cursor from the last row in the result set
     let nextCursor = null;
     if (hasMore && rows.length > 0) {
       const last = rows[rows.length - 1];
@@ -126,14 +124,20 @@ router.get('/', async (req, res) => {
       nextCursor = `${cursorVal}__${last.id}`;
     }
 
-    res.status(200).json({
+    const responseBody = {
       data: rows,
-      pagination: {
-        hasMore,
-        nextCursor,
-        limit,
-      },
-    });
+      pagination: { hasMore, nextCursor, limit },
+    };
+
+    // ── Cache write ───────────────────────────────────────────────────────────
+    await cache.set(cacheKey, responseBody);
+
+    res
+      .status(200)
+      .set('X-Cache', 'MISS')
+      .set('Cache-Control', 'private, max-age=60')
+      .json(responseBody);
+
   } catch (err) {
     console.error('GET /tasks error:', err);
     res.status(500).json({ error: 'Failed to fetch tasks' });
@@ -151,6 +155,9 @@ router.post('/', titleRules, handleValidation, async (req, res) => {
        RETURNING id, title, completed, created_at, updated_at`,
       [req.user.id, title]
     );
+
+    // Invalidate all cached pages for this user so the next GET is fresh
+    await cache.invalidateUser(req.user.id);
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -175,6 +182,8 @@ router.put('/:id', titleRules, handleValidation, async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Task not found' });
     }
+
+    await cache.invalidateUser(req.user.id);
 
     res.status(200).json(result.rows[0]);
   } catch (err) {
@@ -210,6 +219,8 @@ router.patch('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Task not found' });
     }
 
+    await cache.invalidateUser(req.user.id);
+
     res.status(200).json(result.rows[0]);
   } catch (err) {
     console.error('PATCH /tasks/:id error:', err);
@@ -230,6 +241,8 @@ router.delete('/:id', async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Task not found' });
     }
+
+    await cache.invalidateUser(req.user.id);
 
     res.status(204).send();
   } catch (err) {

@@ -68,6 +68,47 @@ const cookieParser = require('cookie-parser');
 app.use(express.json());
 app.use(cookieParser());
 
+// ── Cache stats endpoint ──────────────────────────────────────────────────────
+// GET /api/v1/cache-stats — returns Upstash Redis INFO metrics
+// Useful for measuring hit rate without leaving the app.
+const cacheModule = require('./cache');
+app.get('/api/v1/cache-stats', async (req, res) => {
+  try {
+    const { Redis } = require('@upstash/redis');
+    if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+      return res.status(200).json({ enabled: false, message: 'Redis not configured' });
+    }
+    const redis = new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    });
+    // Upstash supports INFO via a raw command
+    const info = await redis.info();
+    // Parse the key metrics out of the INFO string
+    const lines = typeof info === 'string' ? info.split('\r\n') : [];
+    const extract = (key) => {
+      const line = lines.find((l) => l.startsWith(`${key}:`));
+      return line ? line.split(':')[1]?.trim() : null;
+    };
+    const hits   = parseInt(extract('keyspace_hits'), 10)   || 0;
+    const misses = parseInt(extract('keyspace_misses'), 10) || 0;
+    const total  = hits + misses;
+    const hitRate = total > 0 ? ((hits / total) * 100).toFixed(1) : null;
+
+    res.status(200).json({
+      enabled: true,
+      hits,
+      misses,
+      total,
+      hitRate: hitRate ? `${hitRate}%` : 'no data yet',
+      usedMemory: extract('used_memory_human'),
+      connectedClients: extract('connected_clients'),
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch cache stats', detail: err.message });
+  }
+});
+
 // ── Health check (both paths: uptime-probe friendly + versioned) ─────────────
 const healthHandler = (req, res) => {
   const uptime = Math.floor((Date.now() - startTime) / 1000);
@@ -81,6 +122,7 @@ const healthHandler = (req, res) => {
       cors: productionOrigins > 0,
       jwt: Boolean(process.env.JWT_SECRET),
       database: Boolean(process.env.DATABASE_URL),
+      cache: Boolean(process.env.UPSTASH_REDIS_REST_URL),
     },
   });
 };
